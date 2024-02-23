@@ -2,23 +2,22 @@ package org.masonord.entity;
 
 public class User {
 
-    private String name;
+    private String username;
+    private String password;
 
-    private ChatRoom currentRoom;
-
-    public String getName() {
-        return name;
+    public String getPassword() {
+        return password;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setPassword(String password) {
+        this.password = password;
     }
 
-    public ChatRoom getCurrentRoom() {
-        return currentRoom;
+    public String getUsername() {
+        return username;
     }
 
-    public void setCurrentRoom(ChatRoom currentRoom) {
-        this.currentRoom = currentRoom;
+    public void setUsername(String username) {
+        this.username = username;
     }
 }

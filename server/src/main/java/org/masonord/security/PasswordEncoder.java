@@ -8,18 +8,21 @@ import java.util.Arrays;
 public class PasswordEncoder {
     public String encodePassword(byte[] password) {
         Hash hash = Password.hash(password)
-                .addRandomSalt() // read salt from property file
+                .addSalt("12") // read salt from property file
                 .addPepper("shared_secret") // read paper from property file
                 .withArgon2();
         return hash.getResult();
     }
 
-    public boolean matchPasswords(String password, String hash) {
-        return Password.check(password, hash).withArgon2();
+    public boolean matchPasswords(byte[] password, byte[] hash) {
+        return Password.check(password, hash).addSalt("12").addPepper("shared_secret").withArgon2();
     }
 
-    public boolean matchPasswords(byte[] password1, byte[] password2) {
+    public boolean matchPasswords(String password, String hash) {
+        return Password.check(password, hash).addSalt("12").addPepper("shared_secret").withArgon2();
+    }
+
+    public boolean passwordEquals(byte[] password1, byte[] password2) {
         return Arrays.equals(password1, password2);
     }
-
 }

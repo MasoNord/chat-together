@@ -1,17 +1,13 @@
 package org.masonord.mapper;
 
+import org.masonord.dto.UserDto;
 import org.masonord.entity.User;
-
-import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public class UserMapper {
-
-    public static User toUser(ResultSet rs) throws SQLException {
-        User user = new User();
-        while (rs.next()) {
-            user.setName(rs.getString("name"));
-        }
-        return user;
+    public static UserDto toUserDto(User user) throws SQLException {
+        UserDto userDto = new UserDto();
+        userDto.setName(user.getUsername());
+        return userDto;
     }
 }

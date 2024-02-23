@@ -2,10 +2,15 @@ package org.masonord.security;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.masonord.dto.UserDto;
+import org.masonord.entity.User;
+import org.masonord.mapper.UserMapper;
 import org.masonord.repository.UserRepository;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.sql.SQLException;
+import java.util.Objects;
 
 public class HandleRegistration {
     private static final Logger LOGGER = LogManager.getLogger(HandleRegistration.class);
@@ -18,7 +23,9 @@ public class HandleRegistration {
         this.userRepository = userRepository;
     }
 
-    public boolean doRegistration(BufferedReader in, PrintWriter out) {
+    public UserDto doRegistration(BufferedReader in, PrintWriter out) throws SQLException {
+        User user = new User();
+
         try {
             out.println("Enter your username: ");
             String username = in.readLine();
@@ -27,18 +34,23 @@ public class HandleRegistration {
             out.println("Enter password again: ");
             byte[] repeatPassword = in.readLine().getBytes();
 
-            if (!passwordEncoder.matchPasswords(password, repeatPassword)) {
-                out.println("Passwords does not match");
-                return false;
+            if (!Objects.isNull(userRepository.getByName(username))) {
+                out.println("User already exist with such name, please press enter to continue...");
+                return null;
             }
 
-            // TODO:
+            if (!passwordEncoder.passwordEquals(password, repeatPassword)) {
+                out.println("Passwords does not match, please press enter to continue...");
+                return null;
+            }
 
+            user.setPassword(passwordEncoder.encodePassword(password));
+            user.setUsername(username);
         }catch (IOException e) {
             // TODO: make proper logging
         }
-
-        return true;
+        out.println("SERVER: WELCOME to the chat together !!!");
+        return UserMapper.toUserDto(userRepository.createNewRecord(user));
     }
 
 }

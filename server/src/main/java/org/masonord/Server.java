@@ -3,6 +3,8 @@ package org.masonord;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.masonord.config.DatabaseConfig;
+import org.masonord.dto.UserDto;
+import org.masonord.entity.User;
 import org.masonord.repository.UserRepository;
 import org.masonord.security.HandleAuthentication;
 import org.masonord.security.HandleRegistration;
@@ -14,7 +16,9 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -28,6 +32,7 @@ public class Server implements Runnable {
 
     public Server() {
         done = false;
+        LOGGER.info("Starting server on port " + 9999 + " ...");
         connections = new ArrayList<>();
     }
 
@@ -43,7 +48,7 @@ public class Server implements Runnable {
                 ConnectionHandler handler = new ConnectionHandler(
                         client,
                         new HandleRegistration(new PasswordEncoder(),new UserRepository(dataSource)),
-                        new HandleAuthentication()
+                        new HandleAuthentication(new PasswordEncoder(), new UserRepository(dataSource))
                 );
 
                 connections.add(handler);
@@ -100,27 +105,33 @@ public class Server implements Runnable {
             try {
                 out = new PrintWriter(client.getOutputStream(), true);
                 in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+                UserDto user = null;
 
                 while(true) {
                     String nickname = "Some ordinary guy";
+                    String message = "Hello";
+
                     out.println("1. Login\n2. SigUp\n3. Exit");
                     String choice = in.readLine();
-                    String message = "Hello";
-                    boolean passed = false;
 
-                    switch (choice.toLowerCase()) {
-                        case "1": case "login":
-                            passed = authentication.doAuthentication();
-                            break;
-                        case "2": case "sigup":
-                            passed = registration.doRegistration(in, out);
-                            break;
-                        case "3": case "exit":
-                        default:
-                            out.println("Wrong choice supplied, try again");
+                    if (Objects.isNull(user)) {
+                        switch (choice.toLowerCase()) {
+                            case "1": case "login":
+                                user = authentication.doAuthentication(in, out);
+                                break;
+                            case "2": case "sigup":
+                                user = registration.doRegistration(in, out);
+                                break;
+                            case "3": case "exit":
+                            default:
+                                out.println("Wrong choice supplied, try again");
+                                break;
+                        }
                     }
 
-                    while ((message = in.readLine()) != null && passed) {
+                    while ((message = in.readLine()) != null && !Objects.isNull(user)) {
+                        out.println("> ");
+
                         if (message.startsWith("/nick")) {
                             String[] messageSplit = message.split(" ", 2);
                             if (messageSplit.length == 2) {
@@ -140,10 +151,10 @@ public class Server implements Runnable {
                     }
                 }
 
-
-
             } catch (IOException e) {
                 shutdown();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
             }
         }
 
