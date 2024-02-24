@@ -35,13 +35,12 @@ public class HandleAuthentication {
             User user = userRepository.getByName(username);
 
             if (Objects.isNull(user)) {
-                out.println("There is not user with such a name, try again");
+                out.println("SERVER: There is not user with such a name, try again");
                 return null;
             }
 
-
             if (!passwordEncoder.matchPasswords(password, user.getPassword().getBytes())) {
-                out.println("Password does not match, try again");
+                out.println("SERVER: Password does not match, try again");
                 return null;
             }
 

@@ -1,10 +1,14 @@
 package org.masonord.dto;
 
+import org.masonord.entity.ChatRoom;
+
 public class UserDto {
+
+    private int id;
 
     private String name;
 
-    private ChatRoomDto currentRoom;
+    private ChatRoom currentRoom;
 
     public String getName() {
         return name;
@@ -14,11 +18,19 @@ public class UserDto {
         this.name = name;
     }
 
-    public ChatRoomDto getCurrentRoom() {
+    public ChatRoom getCurrentRoom() {
         return currentRoom;
     }
 
-    public void setCurrentRoom(ChatRoomDto currentRoom) {
+    public void setCurrentRoom(ChatRoom currentRoom) {
         this.currentRoom = currentRoom;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 }

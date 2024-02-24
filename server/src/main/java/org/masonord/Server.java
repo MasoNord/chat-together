@@ -4,7 +4,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.masonord.config.DatabaseConfig;
 import org.masonord.dto.UserDto;
-import org.masonord.entity.User;
+import org.masonord.entity.ChatRoom;
+import org.masonord.repository.ChatRepository;
 import org.masonord.repository.UserRepository;
 import org.masonord.security.HandleAuthentication;
 import org.masonord.security.HandleRegistration;
@@ -18,13 +19,13 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Server implements Runnable {
     private static final Logger LOGGER = LogManager.getLogger(Server.class);
-
     private final ArrayList<ConnectionHandler> connections;
     private ServerSocket server;
     private boolean done;
@@ -47,26 +48,17 @@ public class Server implements Runnable {
 
                 ConnectionHandler handler = new ConnectionHandler(
                         client,
-                        new HandleRegistration(new PasswordEncoder(),new UserRepository(dataSource)),
-                        new HandleAuthentication(new PasswordEncoder(), new UserRepository(dataSource))
+                        new HandleRegistration(new PasswordEncoder(), new UserRepository(dataSource)),
+                        new HandleAuthentication(new PasswordEncoder(), new UserRepository(dataSource)),
+                        new ChatRepository(dataSource)
                 );
 
-                connections.add(handler);
                 pool.execute(handler);
             }
         } catch (Exception e) {
             shutdown();
         }
     }
-
-    public void broadcast(String message) {
-        for (ConnectionHandler ch : connections) {
-            if (ch != null) {
-                ch.sendMessage(message);
-            }
-        }
-    }
-
     public void shutdown() {
         try {
             done = true;
@@ -83,21 +75,23 @@ public class Server implements Runnable {
 
     }
 
-    class ConnectionHandler implements Runnable {
+    static class ConnectionHandler implements Runnable {
 
         private final HandleRegistration registration;
         private final HandleAuthentication authentication;
+        private final ChatRepository chatRepository;
         private final Socket client;
         private BufferedReader in;
         private PrintWriter out;
 
         public ConnectionHandler(Socket client,
                                  HandleRegistration registration,
-                                 HandleAuthentication authentication) {
+                                 HandleAuthentication authentication,
+                                 ChatRepository chatRepository) {
             this.client = client;
             this.registration = registration;
             this.authentication = authentication;
-
+            this.chatRepository = chatRepository;
         }
 
         @Override
@@ -108,9 +102,6 @@ public class Server implements Runnable {
                 UserDto user = null;
 
                 while(true) {
-                    String nickname = "Some ordinary guy";
-                    String message = "Hello";
-
                     out.println("1. Login\n2. SigUp\n3. Exit");
                     String choice = in.readLine();
 
@@ -124,33 +115,57 @@ public class Server implements Runnable {
                                 break;
                             case "3": case "exit":
                             default:
-                                out.println("Wrong choice supplied, try again");
+                                out.println("SERVER: Wrong choice supplied, try again");
                                 break;
                         }
                     }
-
+                    String message;
                     while ((message = in.readLine()) != null && !Objects.isNull(user)) {
-                        out.println("> ");
-
                         if (message.startsWith("/nick")) {
+                            out.println(user.getName());
+                        }else if (message.startsWith("/chats")) {
+                            List<String> chats = chatRepository.getAll();
+                            for (String s : chats) {
+                                out.println(s);
+                            }
+                        }else if (message.startsWith("/join_chatroom")) {
                             String[] messageSplit = message.split(" ", 2);
                             if (messageSplit.length == 2) {
-                                broadcast(nickname + " renamed themselves to " + messageSplit[1]);
-                                System.out.println(nickname + " renamed themselves to " + messageSplit[1]);
-                                nickname = messageSplit[1];
-                                out.println("Successfully changed nickname to: " + nickname);
-                            } else {
-                                out.println("No nickname provided");
+                                ChatRoom room = chatRepository.findByName(messageSplit[1]);
+                                if (Objects.isNull(room)) {
+                                    out.println("No room found, try again");
+                                }else {
+                                    int response = chatRepository.addNewUser(room.getName(), user.getId());
+                                    if (response != 0) {
+                                        out.println("SERVER: welcome to the " + room.getName() + " happy chatting :)");
+
+                                    }else {
+                                        out.println("Something went wrong, try again");
+                                    }
+                                }
+                            }else {
+                                out.println("No name provided");
                             }
-                        } else if (message.startsWith("/quit")) {
-                            broadcast(nickname + " left the chat!");
-                            shutdown();
-                        } else {
-                            broadcast(nickname + ": " + message);
+                        }else if (message.startsWith("/create_chatroom")) {
+                            String[] messageSplit = message.split(" ", 2);
+                            if (messageSplit.length == 2) {
+                                int result = chatRepository.createRoom(messageSplit[1]);
+                                if (result != 0) {
+                                    out.println("Room has been successfully created");
+                                }else {
+                                    out.println("Something went wrong, try again");
+                                }
+                            }else {
+                                out.println("No name provided");
+                            }
+                        }else if (message.startsWith("/quit_chatroom")) {
+
+                        }else if (message.startsWith("/quit")) {
+//                            broadcast(nickname + " left the chat!");
+//                            shutdown();
                         }
                     }
                 }
-
             } catch (IOException e) {
                 shutdown();
             } catch (SQLException e) {
@@ -158,19 +173,14 @@ public class Server implements Runnable {
             }
         }
 
-        public void sendMessage(String message) {
-            out.println(message);
-        }
 
         public void shutdown() {
             try{
                 in.close();
-
                 out.close();
                 if(!client.isClosed()){
                     client.close();
                 }
-
             }catch (IOException e){
                 e.printStackTrace();
             }

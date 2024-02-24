@@ -35,12 +35,12 @@ public class HandleRegistration {
             byte[] repeatPassword = in.readLine().getBytes();
 
             if (!Objects.isNull(userRepository.getByName(username))) {
-                out.println("User already exist with such name, please press enter to continue...");
+                out.println("SERVER: User already exist with such name, try again");
                 return null;
             }
 
             if (!passwordEncoder.passwordEquals(password, repeatPassword)) {
-                out.println("Passwords does not match, please press enter to continue...");
+                out.println("SERVER: Passwords does not match, try again");
                 return null;
             }
 
