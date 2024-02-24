@@ -96,4 +96,18 @@ public class ChatRepository {
         }
         return response;
     }
+
+    public int removeUser(String chatName, int userId) {
+        int response = 0;
+        try (Connection connection = dataSource.getConnection()) {
+            PreparedStatement deleteStatement = connection.prepareStatement("DELETE FROM Chats WHERE name = ? AND user_id = ?");
+            deleteStatement.setString(1, chatName);
+            deleteStatement.setInt(2, userId);
+            response = deleteStatement.executeUpdate();
+        }catch (SQLException e) {
+            // TODO: logging
+        }
+
+        return response;
+    }
 }

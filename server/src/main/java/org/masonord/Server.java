@@ -102,12 +102,12 @@ public class Server implements Runnable {
             try {
                 out = new PrintWriter(client.getOutputStream(), true);
                 in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-
-                while(true) {
-                    out.println("1. Login\n2. SigUp\n3. Exit");
-                    String choice = in.readLine();
-
+                String message;
+                while((message = in.readLine()) != null) {
                     if (Objects.isNull(user)) {
+                        out.println("1. Login\n2. SigUp\n3. Exit");
+                        String choice = in.readLine();
+
                         switch (choice.toLowerCase()) {
                             case "1": case "login":
                                 user = authentication.doAuthentication(in, out);
@@ -120,13 +120,10 @@ public class Server implements Runnable {
                                 out.println("SERVER: Wrong choice supplied, try again");
                                 break;
                         }
-                    }
-
-                    String message;
-                    while ((message = in.readLine()) != null && !Objects.isNull(user)) {
+                    }else {
                         if (message.startsWith("/nick")) {
                             out.println(user.getName());
-                        }else if (message.startsWith("/chat_rooms")) {
+                        }else if (message.startsWith("/chatrooms")) {
                             List<String> chats = chatRepository.getAll();
                             for (String s : chats) {
                                 out.println(s);
@@ -136,37 +133,62 @@ public class Server implements Runnable {
                             if (messageSplit.length == 2) {
                                 currentRoom = chatRepository.findByName(messageSplit[1]);
                                 if (Objects.isNull(currentRoom)) {
-                                    out.println("No room found, try again");
+                                    out.println("SERVER: No room found, try again");
                                 }else {
                                     int response = chatRepository.addNewUser(currentRoom.getName(), user.getId());
                                     if (response != 0) {
                                         out.println("SERVER: welcome to the " + currentRoom.getName() + "! Happy chatting :)");
                                         broadcast("SERVER: " + user.getName() + " join the chat", currentRoom.getName());
                                     }else {
-                                        out.println("Something went wrong, try again");
+                                        out.println("SERVER: Something went wrong, try again");
                                     }
                                 }
                             }else {
-                                out.println("No name provided");
+                                out.println("SERVER: No name provided");
                             }
                         }else if (message.startsWith("/create_chatroom")) {
                             String[] messageSplit = message.split(" ", 2);
                             if (messageSplit.length == 2) {
                                 int result = chatRepository.createRoom(messageSplit[1]);
                                 if (result != 0) {
-                                    out.println("Room has been successfully created");
+                                    out.println("SERVER: Room has been successfully created");
                                 }else {
-                                    out.println("Something went wrong, try again");
+                                    out.println("SERVER: Something went wrong, try again");
                                 }
                             }else {
-                                out.println("No name provided");
+                                out.println("SERVER: No name provided");
                             }
                         }else if (message.startsWith("/quit_chatroom")) {
-
+                            if (!Objects.isNull(currentRoom)) {
+                                int response = chatRepository.removeUser(currentRoom.getName(), user.getId());
+                                if (response != 0) {
+                                    broadcast("SERVER: " + user.getName() + " left the chat", currentRoom.getName());
+                                    currentRoom = null;
+                                }else {
+                                    out.println("SERVER: something went wrong, try again");
+                                }
+                            }else {
+                                out.println("SERVER: you can't proceed, joint to a chatroom first");
+                            }
                         }else if (message.startsWith("/quit")) {
-//                            broadcast(nickname + " left the chat!");
-//                            shutdown();
-                        }else {
+                            if (!Objects.isNull(currentRoom)) {
+                                chatRepository.removeUser(currentRoom.getName(), user.getId());
+                                broadcast(user.getName() + " left the chat!", currentRoom.getName());
+                            }
+                            shutdown();
+                        }else if (message.startsWith("/?") || message.startsWith("/help")) {
+                            out.println(
+                                    """
+                                            /quit_chatroom - leave the current room\s
+                                            /quit - leave the server\s
+                                            /create_chatroom - create a new chatroom\s
+                                            /join_chatroom - join to a chatroom\s
+                                            /chatrooms - get list of available chatrooms\s
+                                   """
+                            );
+                        }
+
+                        else {
                             if (!Objects.isNull(currentRoom)) {
                                 broadcast(user.getName() + ": " + message, currentRoom.getName());
                             }else {
