@@ -1,5 +1,6 @@
 package org.masonord.repository;
 
+import org.masonord.dto.UserDto;
 import org.masonord.entity.ChatRoom;
 
 import javax.sql.DataSource;
@@ -67,14 +68,32 @@ public class ChatRepository {
         int response = 0;
 
         try (Connection connection = dataSource.getConnection()) {
-            PreparedStatement updateStatement = connection.prepareStatement("UPDATE Chats SET user_id = ? WHERE name = ?");
-            updateStatement.setString(1, String.valueOf(id));
-            updateStatement.setString(2, chatName);
+            PreparedStatement updateStatement = connection.prepareStatement("INSERT INTO Chats(name, user_id) VALUES(?, ?);");
+            updateStatement.setString(1, chatName);
+            updateStatement.setString(2, String.valueOf(id));
             response = updateStatement.executeUpdate();
         }catch (SQLException e) {
             // TODO: logging
         }
 
+        return response;
+    }
+
+    public List<UserDto> getCurrentUsers(String chatName) {
+        List<UserDto> response = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection()) {
+            PreparedStatement getStatement = connection.prepareStatement("SELECT c.user_id, u.name AS user_name FROM Chats c JOIN Users u ON u.user_id = c.user_id WHERE c.name = ?;");
+            getStatement.setString(1, chatName);
+            ResultSet rs = getStatement.executeQuery();
+            while (rs.next()) {
+                UserDto user = new UserDto();
+                user.setId(Integer.parseInt(rs.getString("user_id")));
+                user.setName(rs.getString("user_name"));
+                response.add(user);
+            }
+        }catch (SQLException e) {
+            // TODO: logging;
+        }
         return response;
     }
 }

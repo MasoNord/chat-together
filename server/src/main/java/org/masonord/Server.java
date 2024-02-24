@@ -52,14 +52,15 @@ public class Server implements Runnable {
                         new HandleAuthentication(new PasswordEncoder(), new UserRepository(dataSource)),
                         new ChatRepository(dataSource)
                 );
-
+                connections.add(handler);
                 pool.execute(handler);
             }
         } catch (Exception e) {
             shutdown();
         }
     }
-    public void shutdown() {
+
+    private void shutdown() {
         try {
             done = true;
             pool.shutdown();
@@ -70,12 +71,12 @@ public class Server implements Runnable {
                 ch.shutdown();
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            // TODO: logging
         }
 
     }
 
-    static class ConnectionHandler implements Runnable {
+    class ConnectionHandler implements Runnable {
 
         private final HandleRegistration registration;
         private final HandleAuthentication authentication;
@@ -83,6 +84,8 @@ public class Server implements Runnable {
         private final Socket client;
         private BufferedReader in;
         private PrintWriter out;
+        private ChatRoom currentRoom = null;
+        private UserDto user = null;
 
         public ConnectionHandler(Socket client,
                                  HandleRegistration registration,
@@ -99,7 +102,6 @@ public class Server implements Runnable {
             try {
                 out = new PrintWriter(client.getOutputStream(), true);
                 in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-                UserDto user = null;
 
                 while(true) {
                     out.println("1. Login\n2. SigUp\n3. Exit");
@@ -119,11 +121,12 @@ public class Server implements Runnable {
                                 break;
                         }
                     }
+
                     String message;
                     while ((message = in.readLine()) != null && !Objects.isNull(user)) {
                         if (message.startsWith("/nick")) {
                             out.println(user.getName());
-                        }else if (message.startsWith("/chats")) {
+                        }else if (message.startsWith("/chat_rooms")) {
                             List<String> chats = chatRepository.getAll();
                             for (String s : chats) {
                                 out.println(s);
@@ -131,14 +134,14 @@ public class Server implements Runnable {
                         }else if (message.startsWith("/join_chatroom")) {
                             String[] messageSplit = message.split(" ", 2);
                             if (messageSplit.length == 2) {
-                                ChatRoom room = chatRepository.findByName(messageSplit[1]);
-                                if (Objects.isNull(room)) {
+                                currentRoom = chatRepository.findByName(messageSplit[1]);
+                                if (Objects.isNull(currentRoom)) {
                                     out.println("No room found, try again");
                                 }else {
-                                    int response = chatRepository.addNewUser(room.getName(), user.getId());
+                                    int response = chatRepository.addNewUser(currentRoom.getName(), user.getId());
                                     if (response != 0) {
-                                        out.println("SERVER: welcome to the " + room.getName() + " happy chatting :)");
-
+                                        out.println("SERVER: welcome to the " + currentRoom.getName() + "! Happy chatting :)");
+                                        broadcast("SERVER: " + user.getName() + " join the chat", currentRoom.getName());
                                     }else {
                                         out.println("Something went wrong, try again");
                                     }
@@ -163,6 +166,12 @@ public class Server implements Runnable {
                         }else if (message.startsWith("/quit")) {
 //                            broadcast(nickname + " left the chat!");
 //                            shutdown();
+                        }else {
+                            if (!Objects.isNull(currentRoom)) {
+                                broadcast(user.getName() + ": " + message, currentRoom.getName());
+                            }else {
+                                out.println("SERVER: you are not in a chatroom, connect first");
+                            }
                         }
                     }
                 }
@@ -173,7 +182,6 @@ public class Server implements Runnable {
             }
         }
 
-
         public void shutdown() {
             try{
                 in.close();
@@ -183,6 +191,21 @@ public class Server implements Runnable {
                 }
             }catch (IOException e){
                 e.printStackTrace();
+            }
+        }
+
+        public UserDto getUser() {
+            return user;
+        }
+
+        private void broadcast(String message, String chatName) {
+            List<UserDto> users =  chatRepository.getCurrentUsers(chatName);
+            for (ConnectionHandler ch : connections) {
+                for (UserDto u : users) {
+                    if (u.getId() == ch.getUser().getId() && u.getId() != user.getId()) {
+                        ch.out.println(message);
+                    }
+                }
             }
         }
     }
