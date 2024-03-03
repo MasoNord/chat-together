@@ -28,12 +28,6 @@ Once you've made all previous steps, now you can start the server, so client can
 * [HikariCP](https://github.com/brettwooldridge/HikariCP)
 * [password4j](https://password4j.com/)* 
 
-
-## TODO LIST
-- Add logging
-- Refactor code
-- Add connection to non-localhost machine
-
 ## Contributing
 If you want to contribute to this project you can pull request, your contributions are always very welcomed.
 
