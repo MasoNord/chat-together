@@ -17,6 +17,8 @@ In order to run this application you need to set the following property variable
 ### 2. Start a MySQL database
 Make sure to have a database running on your local machine, with properties 
 which you specified in a property file
+### 4. Run a sql script
+Before starting your application, don't forget to run a SQL script from a SQL folder; it'll create all the necessary tables to run the program safely.
 ### 3. Run the Application
 Once you've made all previous steps, now you can start the server, so client can send messages to each other
 
